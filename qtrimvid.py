@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import os
 import sys
+from glob import iglob
+from itertools import takewhile
 from pathlib import Path
 from subprocess import Popen, PIPE
 from typing import List, Union
@@ -17,7 +19,9 @@ from PyQt5.QtWidgets import (
     QSizePolicy,
     QSlider,
     QStyle,
-    QVBoxLayout, QMessageBox,
+    QVBoxLayout,
+    QMessageBox,
+    QDialog, QTextEdit, QLineEdit,
 )
 from PyQt5.QtWidgets import QMainWindow, QWidget, QPushButton, QAction
 from fire import Fire
@@ -27,9 +31,7 @@ from loguru import logger
 class VideoWindow(QMainWindow):
     def __init__(self, parent=None):
         super(VideoWindow, self).__init__(parent)
-        self.setWindowTitle(
-            "PyQt Video Player Widget Example - pythonprogramminglanguage.com"
-        )
+        self.setWindowTitle(f"qtrimvid")
 
         self.mediaPlayer = QMediaPlayer(None, QMediaPlayer.VideoSurface)
 
@@ -55,11 +57,10 @@ class VideoWindow(QMainWindow):
         openAction.setStatusTip("Open movie")
         openAction.triggered.connect(self.openFile)
 
-
         self.trimFromButton = QPushButton()
         self.trimFromButton.setEnabled(False)
         self.trimFromButton.setIcon(self.style().standardIcon(QStyle.SP_ArrowRight))
-        self.trimFromButton.setText('Trim from here')
+        self.trimFromButton.setText("Trim from here")
         self.trimFromButton.clicked.connect(self.trimFrom)
 
         trimFromAction = QAction(QIcon("start.png"), "&Trim from here", self)
@@ -70,9 +71,9 @@ class VideoWindow(QMainWindow):
         self.trimToButton = QPushButton()
         self.trimToButton.setEnabled(False)
         self.trimToButton.setIcon(self.style().standardIcon(QStyle.SP_ArrowLeft))
-        self.trimToButton.setText('Trim to here')
+        self.trimToButton.setText("Trim to here")
         self.trimToButton.clicked.connect(self.trimTo)
-        
+
         trimToAction = QAction(QIcon("end.png"), "Trim to her&e", self)
         trimToAction.setShortcut("Ctrl+e")
         trimToAction.setStatusTip("Trim to here")
@@ -140,6 +141,9 @@ class VideoWindow(QMainWindow):
             self.playButton.setEnabled(True)
             self.trimToButton.setEnabled(True)
             self.trimFromButton.setEnabled(True)
+            self.setWindowTitle(
+                f"qtrimvid - {self.mediaPlayer.currentMedia().canonicalUrl().toString()}"
+            )
             self.play()
 
     def exitCall(self):
@@ -163,13 +167,19 @@ class VideoWindow(QMainWindow):
                 "-acodec",
                 "copy",
                 tmp_path,
-            ], stderr=PIPE, stdout=PIPE
+            ],
+            stderr=PIPE,
+            stdout=PIPE,
         )
 
         if p.wait() == 0:
             logger.info(p.stdout.read().decode())
-            os.rename(tmp_path, path)
-            self.openFile(path)
+            fileName, _ = QFileDialog.getSaveFileName(
+                self, "Save File", QDir.homePath()
+            )
+            if fileName:
+                os.rename(tmp_path, fileName)
+                self.openFile(fileName)
         else:
             err_text = p.stderr.read().decode()
             logger.error(err_text)
@@ -220,8 +230,8 @@ class VideoWindow(QMainWindow):
             QTime(
                 int((position / 3600000)) % 24,
                 int((position / 60000)) % 60,
-                int((position / 1000)) % 60
-                ).toString()
+                int((position / 1000)) % 60,
+            ).toString()
         )
 
     def durationChanged(self, duration):
@@ -243,6 +253,26 @@ class VideoWindow(QMainWindow):
         self.trimToButton.setEnabled(False)
         self.trimFromButton.setEnabled(False)
         self.errorLabel.setText("Error: " + self.mediaPlayer.errorString())
+
+
+class SearchDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+        self.inp = QLineEdit()
+        self.label = QLabel()
+        self.inp.textChanged.connect(self.onTextChanged)
+
+        layout.addWidget(self.inp)
+        layout.addWidget(self.label)
+        self.show()
+    def onTextChanged(self, text):
+        if text:
+            l = list(filter(os.path.isfile, iglob(os.path.expanduser(text))))
+            self.label.setText('\n'.join(l[:20]) + f'{len(l)} total' if len(l)>=20 else '')
+
+
 
 
 app = QApplication(sys.argv)
