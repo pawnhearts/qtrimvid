@@ -3,6 +3,7 @@ import os
 import sys
 from pathlib import Path
 from subprocess import Popen, PIPE
+from typing import List, Union
 
 from PyQt5.QtCore import QDir, Qt, QUrl, QTime
 from PyQt5.QtGui import QIcon
@@ -120,16 +121,19 @@ class VideoWindow(QMainWindow):
         self.mediaPlayer.durationChanged.connect(self.durationChanged)
         self.mediaPlayer.error.connect(self.handleError)
 
-    def openFile(self, fileName=""):
-        if not fileName:
-            fileName, _ = QFileDialog.getOpenFileName(
+    def openFile(self, fileNames: Union[List[Path], Path]):
+        if not fileNames:
+            fileNames, _ = QFileDialog.getOpenFileNames(
                 self, "Open Movie", QDir.homePath()
             )
 
-        if fileName:
+        if fileNames:
+            if not isinstance(fileNames, list):
+                fileNames = [fileNames]
             self.mediaPlayer.stop()
             self.playlist = QMediaPlaylist()
-            self.playlist.addMedia(QMediaContent(QUrl.fromLocalFile(fileName)))
+            for fileName in fileNames:
+                self.playlist.addMedia(QMediaContent(QUrl.fromLocalFile(fileName)))
             self.playlist.setCurrentIndex(0)
             self.playlist.setPlaybackMode(QMediaPlaylist.Loop)
             self.mediaPlayer.setPlaylist(self.playlist)
@@ -244,7 +248,7 @@ class VideoWindow(QMainWindow):
 app = QApplication(sys.argv)
 
 
-def main(path: Path = ""):
+def main(*path: List[Path]):
     player = VideoWindow()
     player.resize(640, 480)
     player.show()
