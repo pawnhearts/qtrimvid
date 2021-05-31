@@ -127,6 +127,7 @@ class VideoWindow(QMainWindow):
             )
 
         if fileName:
+            self.mediaPlayer.stop()
             self.playlist = QMediaPlaylist()
             self.playlist.addMedia(QMediaContent(QUrl.fromLocalFile(fileName)))
             self.playlist.setCurrentIndex(0)
