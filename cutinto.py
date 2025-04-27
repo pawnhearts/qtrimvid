@@ -1,4 +1,7 @@
-import sys
+#!/usr/bin/env python
+import sys, os
+from pathlib import Path
+from subprocess import Popen, PIPE
 
 import cv2
 
@@ -18,7 +21,10 @@ def compare(img1, img2):
     return cv2.compareHist(hist_img1, hist_img2, cv2.HISTCMP_BHATTACHARYYA)
 
 
-cap = cv2.VideoCapture(sys.argv[-1])
+fpath = sys.argv[-1]
+tmp_path = Path(fpath)
+tmp_path = str(tmp_path.parent / f'_{tmp_path.name}')
+cap = cv2.VideoCapture(fpath)
 fps = cap.get(cv2.CAP_PROP_FPS)
 
 res, frame = cap.read()
@@ -29,15 +35,33 @@ while cap.isOpened():
     ret, frame = cap.read()
 
     if ret:
-        cv2.imwrite('frame{:d}.jpg'.format(count), frame)
-        print(f'Frame {count} compareHist :{compare(prev, frame)}')
-        if prev and compare(prev, frame) > 0.9:
-            print(count//fps)
-            sys.exit(0)
+        #cv2.imwrite('frame{:d}.jpg'.format(count), frame)
+        if prev is not None and compare(prev, frame) > 0.9:
+            #print(f'Frame {count} compareHist :{compare(prev, frame)}')
+            print('Cutting first', count//fps)
+            ps = Popen(['ffmpeg',
+                     '-i',
+                   fpath,
+                     '-ss',
+                    str(count//fps),
+                     '-vcodec',
+                     'copy',
+                     '-acodec',
+                     'copy',
+                     tmp_path], stdout=PIPE)
+            ret = ps.wait()
+            if ret == 0:
+                os.rename(tmp_path, fpath)
+            elif os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
+            sys.exit(ret)
 
         count += fps # i.e. at 30 fps, this advances one second
         cap.set(cv2.CAP_PROP_POS_FRAMES, count)
         prev = frame
+        if count//fps > 20:
+            sys.exit(1)
     else:
         cap.release()
         break
