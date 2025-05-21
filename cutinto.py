@@ -21,47 +21,49 @@ def compare(img1, img2):
     return cv2.compareHist(hist_img1, hist_img2, cv2.HISTCMP_BHATTACHARYYA)
 
 
-fpath = sys.argv[-1]
-tmp_path = Path(fpath)
-tmp_path = str(tmp_path.parent / f'_{tmp_path.name}')
-cap = cv2.VideoCapture(fpath)
-fps = cap.get(cv2.CAP_PROP_FPS)
+for fpath in filter(os.path.isfile, sys.argv[1:]):
+    print(fpath)
+    tmp_path = Path(fpath)
+    tmp_path = str(tmp_path.parent / f'_{tmp_path.name}')
+    cap = cv2.VideoCapture(fpath)
+    fps = cap.get(cv2.CAP_PROP_FPS)
 
-res, frame = cap.read()
-prev = None
-count = 0
+    res, frame = cap.read()
+    prev = None
+    count = 0
 
-while cap.isOpened():
-    ret, frame = cap.read()
+    while cap.isOpened():
+        ret, frame = cap.read()
 
-    if ret:
-        #cv2.imwrite('frame{:d}.jpg'.format(count), frame)
-        if prev is not None and compare(prev, frame) > 0.9:
-            #print(f'Frame {count} compareHist :{compare(prev, frame)}')
-            print('Cutting first', count//fps)
-            ps = Popen(['ffmpeg',
-                     '-i',
-                   fpath,
-                     '-ss',
-                    str(count//fps),
-                     '-vcodec',
-                     'copy',
-                     '-acodec',
-                     'copy',
-                     tmp_path], stdout=PIPE)
-            ret = ps.wait()
-            if ret == 0:
-                os.rename(tmp_path, fpath)
-            elif os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+        if ret:
+            #cv2.imwrite('frame{:d}.jpg'.format(count), frame)
+            if prev is not None and compare(prev, frame) > 0.9:
+                #print(f'Frame {count} compareHist :{compare(prev, frame)}')
+                print('Cutting first', count//fps)
+                ps = Popen(['ffmpeg',
+                         '-i',
+                       fpath,
+                         '-ss',
+                        str(count//fps),
+                         '-vcodec',
+                         'copy',
+                         '-acodec',
+                         'copy',
+                         tmp_path], stdout=PIPE)
+                ret = ps.wait()
+                if ret == 0:
+                    os.rename(tmp_path, fpath)
+                elif os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
 
-            sys.exit(ret)
+                break
 
-        count += fps # i.e. at 30 fps, this advances one second
-        cap.set(cv2.CAP_PROP_POS_FRAMES, count)
-        prev = frame
-        if count//fps > 20:
-            sys.exit(1)
-    else:
-        cap.release()
-        break
+            count += fps # i.e. at 30 fps, this advances one second
+            cap.set(cv2.CAP_PROP_POS_FRAMES, count)
+            prev = frame
+            if count//fps > 20:
+                print('Intro not found')
+                break
+        else:
+            cap.release()
+            break
