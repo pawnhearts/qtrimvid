@@ -45,6 +45,7 @@ for fpath in filter(os.path.isfile, sys.argv[1:]):
                        fpath,
                          '-ss',
                         str(count//fps),
+                        '-y',
                          '-vcodec',
                          'copy',
                          '-acodec',
