@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import sys, os
+import sys, os, math
 from pathlib import Path
 from subprocess import Popen, PIPE
 import numpy as np
@@ -44,18 +44,23 @@ for fpath in filter(os.path.isfile, sys.argv[1:]):
 
         if ret:
             #cv2.imwrite('frame{:d}.jpg'.format(count), frame)
-            sec = int(count // fps)
-            if verbose:
-                print(f'Frame {count} ({sec}) avg gray: {avg_gray(frame)}')
-                if prev is not None:
-                    print(f'{compare(prev, frame)}')
+            sec = math.ceil(count / fps)
             try:
                 cmp = 0
                 if prev is not None:
                     cmp = compare(prev, frame)
             except Exception as e:
-                print(e)
-            if avg_gray(frame) > 10 or cmp > 0.9:
+                print(e, file=sys.stderr)
+            if verbose:
+                print(f'Frame {count} ({sec}) avg gray: {avg_gray(frame)} cmp: {cmp}')
+
+            elif cmp > 0.7:# or avg_gray(frame) > 10:
+                if count == 0:
+                    break
+
+                sec += 1
+
+
                 #print(f'Frame {count} compareHist :{compare(prev, frame)}')
                 print('Cutting first', sec)
                 ps = Popen(['ffmpeg',
