@@ -82,7 +82,7 @@ for fpath in filter(os.path.isfile, sys.argv[1:]):
 
                 break
 
-            count += fps//2 # i.e. at 30 fps, this advances one second
+            count += fps # i.e. at 30 fps, this advances one second
             cap.set(cv2.CAP_PROP_POS_FRAMES, count)
             prev = frame
             if count//fps > 20:
