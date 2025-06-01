@@ -2,6 +2,7 @@
 import sys, os
 from pathlib import Path
 from subprocess import Popen, PIPE
+import numpy as np
 
 import cv2
 
@@ -20,6 +21,12 @@ def compare(img1, img2):
     # find the metric value
     return cv2.compareHist(hist_img1, hist_img2, cv2.HISTCMP_BHATTACHARYYA)
 
+def avg_gray(frame):
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    return np.average(gray)
+        
+        
+verbose = '-d' in sys.argv
 
 for fpath in filter(os.path.isfile, sys.argv[1:]):
     print(fpath)
@@ -37,20 +44,31 @@ for fpath in filter(os.path.isfile, sys.argv[1:]):
 
         if ret:
             #cv2.imwrite('frame{:d}.jpg'.format(count), frame)
-            if prev is not None and compare(prev, frame) > 0.9:
+            sec = int(count // fps)
+            if verbose:
+                print(f'Frame {count} ({sec}) avg gray: {avg_gray(frame)}')
+                if prev is not None:
+                    print(f'{compare(prev, frame)}')
+            try:
+                cmp = 0
+                if prev is not None:
+                    cmp = compare(prev, frame)
+            except Exception as e:
+                print(e)
+            if avg_gray(frame) > 10 or cmp > 0.9:
                 #print(f'Frame {count} compareHist :{compare(prev, frame)}')
-                print('Cutting first', count//fps)
+                print('Cutting first', sec)
                 ps = Popen(['ffmpeg',
                          '-i',
                        fpath,
                          '-ss',
-                        str(count//fps),
+                        str(sec),
                         '-y',
                          '-vcodec',
                          'copy',
                          '-acodec',
                          'copy',
-                         tmp_path], stdout=PIPE)
+                         tmp_path], stdout=PIPE, stderr=PIPE)
                 ret = ps.wait()
                 if ret == 0:
                     os.rename(tmp_path, fpath)
@@ -59,7 +77,7 @@ for fpath in filter(os.path.isfile, sys.argv[1:]):
 
                 break
 
-            count += fps # i.e. at 30 fps, this advances one second
+            count += fps//2 # i.e. at 30 fps, this advances one second
             cap.set(cv2.CAP_PROP_POS_FRAMES, count)
             prev = frame
             if count//fps > 20:
